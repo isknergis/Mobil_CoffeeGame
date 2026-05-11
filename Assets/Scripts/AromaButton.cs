@@ -5,15 +5,20 @@ public class AromaButton : MonoBehaviour
 {
     public string aromaName;
     public Image buttonImage;
-    public GameObject selectionLight;
+
+    [Header("Iþýklar")]
+    public GameObject selectionLight; // Seçince yanan ýþýk (Yeþil vb.)
+    public GameObject lockedLight;    // Kilitliyken yanan gri ýþýk
+
+    [Header("Renkler")]
     public Color normalColor = Color.white;
     public Color selectedColor = Color.green;
-    public Color lockedColor = Color.gray; // Kilitli renk eklendi
+    public Color lockedColor = Color.gray;
 
     private AromaSelection aromaSelection;
     private GameManager gameManager;
     private bool isSelected = false;
-    private bool isUnlocked = false; // Uyarýyý bu deðiþkeni kullanarak gidereceðiz
+    private bool isUnlocked = false;
 
     void Start()
     {
@@ -28,30 +33,34 @@ public class AromaButton : MonoBehaviour
     {
         if (gameManager != null && gameManager.unlockSystem != null)
         {
-            // Deðiþkeni burada kullanýyoruz (Atama yapýlýyor)
             isUnlocked = gameManager.unlockSystem.unlockedAromas.Contains(aromaName);
         }
 
-        // Deðiþkeni burada kontrol ediyoruz (Kullaným yapýlýyor -> Uyarý giderilir)
         if (!isUnlocked)
         {
+            // --- KÝLÝTLÝ DURUM ---
             if (buttonImage != null) buttonImage.color = lockedColor;
-            if (selectionLight != null) selectionLight.SetActive(false);
+
+            if (selectionLight != null) selectionLight.SetActive(false); // Seçim ýþýðýný kapat
+            if (lockedLight != null) lockedLight.SetActive(true);        // GRÝ KÝLÝT IÞIÐINI AÇ
         }
         else
         {
-            UpdateVisual(); // Kilit açýksa görseli güncelle
+            // --- KÝLÝT AÇILDI DURUMU ---
+            if (lockedLight != null) lockedLight.SetActive(false);       // GRÝ KÝLÝT IÞIÐINI SÖNDÜR
+
+            if (buttonImage != null && !isSelected) buttonImage.color = normalColor;
         }
     }
 
-    // AromaButton.cs içindeki OnClick fonksiyonunu bu þekilde güncelle
     public void OnClick()
     {
+        // Kilitliyse veya makine çalýþýyorsa týklamayý engelle
         if (!isUnlocked || (gameManager != null && !gameManager.CanSelect())) return;
 
         isSelected = !isSelected;
 
-        // Iþýðý ve rengi doðrudan isSelected durumuna baðla (Gecikme olmaz)
+        // Iþýðý ve rengi duruma göre güncelle
         if (selectionLight != null) selectionLight.SetActive(isSelected);
         if (buttonImage != null) buttonImage.color = isSelected ? selectedColor : normalColor;
 
@@ -61,9 +70,9 @@ public class AromaButton : MonoBehaviour
             else aromaSelection.RemoveAroma(aromaName);
         }
     }
+
     public void UpdateVisual()
     {
-        // KULLANIM: Sadece kilit açýksa görsel deðiþim yap
         if (!isUnlocked) return;
 
         if (buttonImage != null)
@@ -76,6 +85,10 @@ public class AromaButton : MonoBehaviour
     public void ResetButton()
     {
         isSelected = false;
-        CheckUnlockStatus(); // Reset atarken kilit durumunu da tazeler
+
+        // Resetlendiðinde seçim ýþýðýný kapat, kilit ýþýðýný CheckUnlockStatus'a býrak
+        if (selectionLight != null) selectionLight.SetActive(false);
+
+        CheckUnlockStatus();
     }
 }

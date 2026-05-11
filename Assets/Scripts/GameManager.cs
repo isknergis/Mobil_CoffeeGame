@@ -35,11 +35,14 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        // Baþlangýç kilitlerini aç
+        // 1. BAÞLANGIÇ AYARLARI
+        // Ýlk açýlýþta temel aromalar her zaman açýk olsun
         unlockSystem.unlockedAromas = new List<string> { "Vanilya", "Kakao" };
-        orderManager.unlockedAromas = unlockSystem.unlockedAromas;
 
-        ResetAllSystem(); // Her þeyi tertemiz baþlat
+        // Mevcut sipariþ sayýsýna göre seviyeyi en baþta bir kez hesapla
+        UpdateLevelLogic();
+
+        ResetAllSystem();
         orderManager.GenerateOrder();
 
         serveButton.interactable = false;
@@ -49,6 +52,25 @@ public class GameManager : MonoBehaviour
 
         if (gunuBitirButton != null)
             gunuBitirButton.onClick.AddListener(GunuBitir);
+    }
+
+    // --- SEVÝYE HESAPLAMA MANTIÐI ---
+    public void UpdateLevelLogic()
+    {
+        // ÖRNEK: Her 3 doðru sipariþte 1 seviye atla (+1 baþlangýç seviyesi)
+        // 0-2 sipariþ: Seviye 1 | 3-5 sipariþ: Seviye 2 | 6-8 sipariþ: Seviye 3...
+        int newLevel = (GameData.ToplamSiparis / 3) + 1;
+
+        // Seviyeyi OrderManager'a iþle
+        orderManager.playerLevel = newLevel;
+
+        // Kilit sistemini yeni seviyeye göre çalýþtýr
+        unlockSystem.CheckUnlock(newLevel);
+
+        // Sipariþ sistemine açýlan yeni aromalarý bildir
+        orderManager.unlockedAromas = new List<string>(unlockSystem.unlockedAromas);
+
+        Debug.Log("<color=yellow>Mevcut Seviye: </color>" + newLevel + " | Toplam Sipariþ: " + GameData.ToplamSiparis);
     }
 
     void EnableServeButton() { serveButton.interactable = true; }
@@ -65,17 +87,20 @@ public class GameManager : MonoBehaviour
             int earned = CalculateEarnings(orderManager.currentOrder.coffeeType);
             money += earned;
             GameData.GununKazanci += earned;
-            GameData.ToplamSiparis++;
-            Debug.Log("DOÐRU +" + earned);
+            GameData.ToplamSiparis++; // Sipariþ sayýsý burada artýyor
+
+            // DOÐRU SERVÝS SONRASI: Seviyeyi ve kilitleri kontrol et
+            UpdateLevelLogic();
+
+            Debug.Log("<color=green>DOÐRU +</color>" + earned);
         }
         else
         {
             money -= 5;
             GameData.IptalEdilenSiparis++;
-            Debug.Log("YANLIÞ");
+            Debug.Log("<color=red>YANLIÞ</color>");
         }
 
-        // Temizlik ve yeni sipariþ
         ResetAllSystem();
         orderManager.GenerateOrder();
         UpdateMoneyUI();
@@ -89,24 +114,18 @@ public class GameManager : MonoBehaviour
         UpdateMoneyUI();
     }
 
-    // Hem servis bittiðinde hem müþteri kaçtýðýnda çalýþan ANA temizlik
     void ResetAllSystem()
     {
-        // Önce butonlarý ve aromalarý sýfýrla
         ResetSelections();
-
-        // Sonra makineyi temizle
-        if (machine != null)
-        {
-            machine.ResetMachine();
-        }
-
+        if (machine != null) machine.ResetMachine();
         serveButton.interactable = false;
     }
+
     public void ResetSelections()
     {
         player.ResetSelection();
         aroma.ResetAromas();
+        // Butonlarýn görselini ve kilit durumunu tazele
         foreach (var btn in aromaButtons)
         {
             if (btn != null) btn.ResetButton();
@@ -116,19 +135,14 @@ public class GameManager : MonoBehaviour
     bool CheckOrder()
     {
         var order = orderManager.currentOrder;
-
-        // Kahve ve þeker kontrolü
         if (order.coffeeType != player.selectedCoffee) return false;
         if (order.sugarLevel != player.sugarLevel) return false;
 
-        // --- AROMA KESÝN EÞLEÞME KONTROLÜ ---
         int orderCount = (order.aromas != null) ? order.aromas.Count : 0;
         int selectedCount = (aroma.selectedAromas != null) ? aroma.selectedAromas.Count : 0;
 
-        // Sayýlar tutmuyorsa (fazla veya eksik aroma) direkt yanlýþ
         if (orderCount != selectedCount) return false;
 
-        // Ýçerik kontrolü
         if (orderCount > 0)
         {
             foreach (var a in order.aromas)
