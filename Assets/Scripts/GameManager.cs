@@ -180,6 +180,10 @@ public class GameManager : MonoBehaviour
         return Mathf.RoundToInt(total * multiplier);
     }
 
-    void UpdateMoneyUI() { if (moneyText != null) moneyText.text = "Para: " + money; }
+    void UpdateMoneyUI()
+    {
+        if (moneyText != null)
+            moneyText.text = "Para: " + GameData.GununKazanci;
+    }
     public void GunuBitir() { SceneManager.LoadScene("FinishScene"); }
 }

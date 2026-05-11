@@ -1,5 +1,5 @@
-using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UI;
 
 public class OrderManager : MonoBehaviour
@@ -15,16 +15,17 @@ public class OrderManager : MonoBehaviour
     public Text orderText;
     public Image patienceBar;
 
-    [Header("Patience")]
-    public float patience = 10f;
+    [Header("Patience Settings")]
+    public float basePatience = 60f; // Baþlangýç sabýr süresi (Örn: 60 saniye)
+    public float minPatience = 15f;  // Sabrýn düþebileceði en alt sýnýr
     float currentTime;
+    float currentMaxPatience; // O anki seviye için hesaplanan maksimum sabýr
 
     GameManager gameManager;
 
     void Start()
     {
         gameManager = FindFirstObjectByType<GameManager>();
-        // Ýlk sipariþi oluþturmayý unutmayalým
         if (currentOrder == null) GenerateOrder();
     }
 
@@ -35,14 +36,12 @@ public class OrderManager : MonoBehaviour
         currentTime -= Time.deltaTime;
 
         if (patienceBar != null)
-            patienceBar.fillAmount = currentTime / patience;
+            // Oranlarken o seviyeye özel belirlenen süreyi kullanýyoruz
+            patienceBar.fillAmount = currentTime / currentMaxPatience;
 
         if (currentTime <= 0)
         {
             Debug.Log("Süre doldu!");
-
-            // GameManager'daki OnOrderFailed fonksiyonunu çaðýrarak 
-            // GameData.IptalEdilenSiparis deðerini artýrýyoruz.
             if (gameManager != null)
                 gameManager.OnOrderFailed();
 
@@ -54,21 +53,30 @@ public class OrderManager : MonoBehaviour
     {
         currentOrder = new CoffeeOrder();
 
-        // Her seferinde güncel kilitli ürün listesini GameManager'dan çek
-        if (gameManager != null && gameManager.unlockSystem != null)
+        // 1. SEVÝYE BÝLGÝSÝNÝ GÜNCELLE
+        // GameManager'dan güncel seviyeyi çekiyoruz
+        if (gameManager != null)
         {
+            playerLevel = gameManager.orderManager.playerLevel;
             unlockedAromas = gameManager.unlockSystem.unlockedAromas;
         }
 
-        // Rastgele kahve ve þeker seviyesi belirle
+        // 2. SABIR SÜRESÝNÝ SEVÝYEYE GÖRE HESAPLA
+        // Her seviye için sabýr süresini 5 saniye azaltýyoruz
+        // Formül: Baþlangýç Sabrý - ((Seviye - 1) * 5)
+        float calculatedPatience = basePatience - ((playerLevel - 1) * 5f);
+
+        // Sabrýn çok aþýrý düþüp oyunu imkansýz yapmasýný engellemek için sýnýrlýyoruz
+        currentMaxPatience = Mathf.Max(minPatience, calculatedPatience);
+        currentTime = currentMaxPatience;
+
+        // --- Geri kalan sipariþ oluþturma kodlarýn ---
         if (coffeeTypes != null && coffeeTypes.Count > 0)
         {
             currentOrder.coffeeType = coffeeTypes[Random.Range(0, coffeeTypes.Count)];
         }
 
         currentOrder.sugarLevel = Random.Range(0, 3);
-
-        // Aroma belirleme mantýðý
         currentOrder.aromas = new List<string>();
 
         if (unlockedAromas != null && unlockedAromas.Count > 0)
@@ -79,18 +87,13 @@ public class OrderManager : MonoBehaviour
             for (int i = 0; i < aromaCount; i++)
             {
                 string a = unlockedAromas[Random.Range(0, unlockedAromas.Count)];
-
                 if (!currentOrder.aromas.Contains(a))
                     currentOrder.aromas.Add(a);
             }
         }
 
-        currentTime = patience;
         UpdateUI();
-
-        Debug.Log("Sipariþ: " + currentOrder.coffeeType +
-                  " | Þeker: " + currentOrder.sugarLevel +
-                  " | Aromalar: " + string.Join(",", currentOrder.aromas));
+        Debug.Log("<color=red>Müþteri Sabrý: </color>" + currentMaxPatience + " saniye (Seviye: " + playerLevel + ")");
     }
 
     void UpdateUI()
@@ -100,17 +103,11 @@ public class OrderManager : MonoBehaviour
         string sugarText = currentOrder.sugarLevel == 0 ? "Sade" :
                            currentOrder.sugarLevel == 1 ? "Orta" : "Çok";
 
-        string aromaText = "Yok";
+        string aromaText = (currentOrder.aromas != null && currentOrder.aromas.Count > 0)
+                           ? string.Join(", ", currentOrder.aromas) : "Yok";
 
-        if (currentOrder.aromas != null && currentOrder.aromas.Count > 0)
-        {
-            aromaText = string.Join(", ", currentOrder.aromas);
-        }
-
-        orderText.text =
-            currentOrder.coffeeType + "\n" +
-            "Þeker: " + sugarText + "\n" +
-            "Aroma: " + aromaText;
+        orderText.text = currentOrder.coffeeType + "\n" +
+                        "Þeker: " + sugarText + "\n" +
+                        "Aroma: " + aromaText;
     }
-
 }
